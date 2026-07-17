@@ -1,0 +1,6 @@
+data/raw/*.csv
+data/images/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+debug_page.html
