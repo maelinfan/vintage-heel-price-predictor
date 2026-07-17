@@ -20,6 +20,7 @@ import csv
 import os
 import re
 from urllib.parse import urlencode
+import pathlib
 
 import requests
 from bs4 import BeautifulSoup
@@ -39,15 +40,23 @@ SEARCH_TERMS = [
 MAX_PAGES_PER_TERM = 3
 RATE_LIMIT_SECONDS = 3.0
 DOWNLOAD_IMAGES = True
-OUTPUT_CSV = "../data/raw/heels_listings.csv"
-IMAGE_DIR = "../data/images"
+SCRIPT_DIR = pathlib.Path(__file__).parent
+OUTPUT_CSV = SCRIPT_DIR / "../data/raw/heels_listings.csv"
+IMAGE_DIR = SCRIPT_DIR / "../data/images"
+
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" 
         "(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
-    )
+        ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Connection": "keep-alive:",
 }
+
+session = requests.Session()
+session.headers.update(HEADERS)
 
 FIELDS = [
     "item_id", "title", "price", "sold_date", "url",
@@ -78,7 +87,7 @@ def get_listing_links(query: str, page: int) -> list[dict]:
     Returns a list of {url, title, price} for each listing on a search results page.
     """
     url = build_search_url(query, page)
-    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp = session.get(url, timeout=15)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     
@@ -101,8 +110,11 @@ def get_listing_links(query: str, page: int) -> list[dict]:
             continue
 
         results.append({"url": item_url, "title": title, "price_text": price_text})
-
+    resp = session.get(url, timeout=15)
+    with open("debug_page.html", "w", encoding="utf-8") as f:
+        f.write(resp.text)
     return results
+
 
 def parse_price(price_text: str) -> float | None:
     """Turns '$45.00' or '$40.00 to $60.00' into a single float (uses the low end for ranges)."""
@@ -147,7 +159,7 @@ def guess_era(text: str) -> str | None:
     return None
 
 def get_listing_details(url: str) -> dict:
-    resp = requests.get(url, headers=HEADERS, timeout=15)
+    resp = session.get(url, timeout=15)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     
@@ -189,7 +201,7 @@ def download_image(image_url: str, item_id: str) -> str | None:
     ext = ".jpg"
     local_path = os.path.join(IMAGE_DIR, f"{item_id}{ext}")
     try:
-        resp = requests.get(image_url, headers=HEADERS, timeout=15)
+        resp = session.get(image_url, timeout=15)
         resp.raise_for_status()
         with open(local_path, "wb") as f:
             f.write(resp.content)
