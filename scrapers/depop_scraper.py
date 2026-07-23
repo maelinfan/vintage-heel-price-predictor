@@ -39,6 +39,12 @@ SEARCH_TERMS = [
     "vintage sandals",
 ]
 
+RATE_LIMIT_SECONDS = 3.0
+DOWNLOAD_IMAGES = True
+SCRIPT_DIR = pathlib.Path(__file__).parent
+DEPOP_OUTPUT_CSV = SCRIPT_DIR / "../data/raw/heels_listings.csv"
+DEPOP_IMAGE_DIR = SCRIPT_DIR / "../data/images"
+
 # -----------------------------------------------------------------------------------------------------------
 # SEARCH RESULTS PAGE
 # -----------------------------------------------------------------------------------------------------------
@@ -93,6 +99,9 @@ def get_all_listings(query: str) -> list[dict]:
                 "image_url": image_url,
                 "shoe_type": shoe_type,
             })
+
+        time.sleep(RATE_LIMIT_SECONDS)
+        
         if not data["page_info"]["has_more"]:
             break
         after = data["page_info"]["last"]
@@ -100,9 +109,87 @@ def get_all_listings(query: str) -> list[dict]:
     return all_listings
 
 def parse_price (total_price: str) -> float | None:
-    # Retrieve the current price and convert it into a float
+    """Retrieve the current price and convert it into a float."""
     try:
         return float(total_price)
     except (ValueError, TypeError):
         return None
-    
+
+def download_image(image_url: str, id: str) -> str | None:
+    """
+    Downloads the image from image_url and saves it to DEPOP_IMAGE_DIR with a filename
+    based on the id. Returns the local file path if successful or None if failed.
+    """
+    if not image_url:
+        return None
+    os.makedirs(DEPOP_IMAGE_DIR, exist_ok=True)
+    ext = ".jpg"
+    image_local_path = os.path.join(DEPOP_IMAGE_DIR, f"{id}{ext}")
+    try:
+        resp = requests.get(image_url, timeout=15)
+        resp.raise_for_status()
+        with open(image_local_path, "wb") as f:
+            f.write(resp.content)
+        return image_local_path
+    except requests.RequestException:
+        return None
+
+# -----------------------------------------------------------------------------------------------------------
+# MAIN FUNCTION
+# -----------------------------------------------------------------------------------------------------------
+
+def main():
+    os.makedirs(os.path.dirname(DEPOP_OUTPUT_CSV), exist_ok=True)
+    write_header = not os.path.exists(DEPOP_OUTPUT_CSV)
+
+    with open(DEPOP_OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
+        fieldnames = [
+            "id",
+            "brand_id",
+            "brand_name",
+            "description",
+            "condition",
+            "total_price",
+            "image_url",
+            "shoe_type",
+            "image_local_path",
+        ]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+
+        seen_ids = set()
+
+        for query in SEARCH_TERMS:
+            print(f"Searching Depop for '{query}'...")
+            listings = get_all_listings(query)
+
+            for listing in listings:
+                if listing["id"] in seen_ids:
+                    continue
+                seen_ids.add(listing["id"])
+
+                image_local_path = ""
+                if DOWNLOAD_IMAGES and listing.get("image_url"):
+                    downloaded = download_image(listing["image_url"], listing["id"])
+                    image_local_path = downloaded or ""
+
+                row = {
+                    "id": listing["id"],
+                    "brand_id": listing["brand_id"],
+                    "brand_name": listing["brand_name"],
+                    "description": listing["description"],
+                    "condition": listing["condition"],
+                    "total_price": listing["total_price"],
+                    "image_url": listing["image_url"],
+                    "shoe_type": listing["shoe_type"],
+                    "image_local_path": image_local_path,
+                }
+
+                writer.writerow(row)
+                f.flush()
+
+        print(f"Done. Data saved to {DEPOP_OUTPUT_CSV}")
+
+if __name__ == "__main__":
+    main()
