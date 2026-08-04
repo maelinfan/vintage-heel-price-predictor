@@ -77,6 +77,8 @@ def get_all_listings(query: str) -> list[dict]:
     while True:
         search_url = build_search_url(query, after)
         resp = requests.get(search_url, headers=HEADERS)
+        print("Status code:", resp.status_code)
+        print("Response text:", resp.text[:500])
         data = resp.json()
 
         for listing in data["objects"]:
