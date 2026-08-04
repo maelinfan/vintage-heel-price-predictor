@@ -32,10 +32,10 @@ load_dotenv()
 
 SEARCH_TERMS = [
     "vintage heels",
-    ###"vintage kitten heels",
-    ###"vintage stilettos",
-    ###"vintage boots",
-    ###"vintage sandals",
+    "vintage kitten heels",
+    "vintage stilettos",
+    "vintage boots",
+    "vintage sandals",
 ]
 
 RATE_LIMIT_SECONDS = 3.0
@@ -104,7 +104,7 @@ def get_all_items(query: str, access_token: str) -> list[dict]:
     all_listings = []
     offset = 0
 
-    while len(all_listings) <= 100:
+    while len(all_listings) <= 200: # Limit to 200 listings for now
         listing = search_items(query, access_token, offset)
 
         for item in listing["itemSummaries"]:
