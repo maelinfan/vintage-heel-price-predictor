@@ -27,7 +27,7 @@ Rules for AI-assisted data prep:
 
 ```
 scrapers/    ebay_scraper.py (HTML, blocked), depop_scraper.py (blocked), ebay_api_scraper.py (working)
-notebooks/   01_eda.ipynb (loading, cleaning, feature extraction, first charts)
+notebook/   01_eda.ipynb (loading, cleaning, feature extraction, first charts)
 data/raw/    scraped CSVs (gitignored); data/images/ downloaded thumbnails (gitignored)
 ```
 
